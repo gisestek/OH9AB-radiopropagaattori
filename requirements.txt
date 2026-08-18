@@ -1,0 +1,7 @@
+# Datankäsittelyputken riippuvuudet.
+# GDAL: viralliset PyPI-wheelit (>= 3.9) toimivat Windowsissa suoraan;
+# vaihtoehtona conda-forge: conda install -c conda-forge gdal
+gdal>=3.8
+numpy>=1.24
+pillow>=10
+pytest>=7

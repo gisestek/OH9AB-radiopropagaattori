@@ -1,0 +1,47 @@
+{
+  "_ohje": [
+    "Kopioi tämä nimelle validate/nodes.json ja täytä omat solmusi.",
+    "Aja aina käsin muokkauksen jälkeen: python3 validate/check_nodes.py validate/nodes.json",
+    "Näitä tietoja EI ole lokeissa, ja ne vaikuttavat tulokseen suoraan:",
+    "antennin korkeus maanpinnasta on tärkein yksittäinen parametri.",
+    "Käytä korkeutta maanpinnasta, älä merenpinnasta — maanpinnan korkeus",
+    "luetaan korkeusmallista.",
+    "parse_logs.py tulostaa lopuksi listan solmuista, jotka aineistossa esiintyi.",
+    "",
+    "lat/lon (valinnainen, ks. OH9RAB alla): kiinteän aseman TARKKA sijainti,",
+    "jos se on tiedossa. Tämä OHITTAA verkon oman position-paketin täysin —",
+    "myös sumennuksen (position_precision) ja sen jos solmu ei lähetä",
+    "position-pakettia MQTT:hen lainkaan. Käytä vain oikeasti kiinteille",
+    "asemille, älä liikkuvaan solmuun (kaikki sen havainnot pinnataan yhteen",
+    "pisteeseen)."
+  ],
+  "defaults": {
+    "antenna_height_m": 2.0,
+    "tx_power_dbm": 27.0,
+    "antenna_gain_dbi": 2.15,
+    "cable_loss_db": 0.0,
+    "freq_mhz": 869.525,
+    "pol": 2
+  },
+  "nodes": {
+    "!11111111": {
+      "name": "OH9RAB",
+      "antenna_height_m": 5.0,
+      "tx_power_dbm": 27.0,
+      "antenna_gain_dbi": 6.0,
+      "cable_loss_db": 1.5,
+      "lat": 66.6087,
+      "lon": 25.8403
+    },
+    "!22222222": {
+      "name": "Kotisolmu",
+      "antenna_height_m": 8.0,
+      "antenna_gain_dbi": 2.15
+    },
+    "!33333333": {
+      "name": "Autossa",
+      "antenna_height_m": 1.8,
+      "antenna_gain_dbi": 0.0
+    }
+  }
+}

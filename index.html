@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OH9AB — radiopropagaatiotyökalut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Sama merikarttojen kieli kuin kuuluvuus.html:ssä: syvä karttasininen,
+   paperinvaalea teksti, magenta radiomajakka-korostuksena. */
+:root{
+  --deep:#08161f; --mid:#0e2331; --raise:#143142;
+  --line:#1e4155; --line-soft:#16323f;
+  --paper:#ece4d2; --dim:#8ba4b1; --dimmer:#5d7683;
+  --beacon:#e0218a;
+  --fd:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;
+  --fb:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  --fm:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:var(--fb);background:var(--deep);color:var(--paper);
+  -webkit-font-smoothing:antialiased;line-height:1.6;
+}
+.wrap{max-width:760px;margin:0 auto;padding:48px 24px 80px}
+h1{font-family:var(--fd);font-size:1.9rem;margin:0 0 4px}
+h1 .call{color:var(--beacon)}
+.sub{color:var(--dim);margin:0 0 40px;font-size:1.02rem}
+h2{font-family:var(--fd);font-size:1.15rem;margin:44px 0 12px;
+   border-bottom:1px solid var(--line-soft);padding-bottom:8px}
+a{color:var(--beacon);text-decoration:none}
+a:hover{text-decoration:underline}
+.card{
+  display:block;background:var(--mid);border:1px solid var(--line);
+  border-radius:10px;padding:20px 22px;margin:16px 0;
+  transition:border-color .15s;
+}
+.card:hover{border-color:var(--beacon);text-decoration:none}
+.card b{font-family:var(--fd);font-size:1.12rem;color:var(--paper)}
+.card .tag{
+  font-family:var(--fm);font-size:.72rem;color:var(--beacon);
+  border:1px solid var(--beacon);border-radius:4px;padding:1px 7px;
+  margin-left:10px;vertical-align:2px;letter-spacing:.04em;
+}
+.card p{margin:8px 0 0;color:var(--dim);font-size:.95rem}
+ol,ul{padding-left:22px;color:var(--paper)}
+li{margin:7px 0}
+li b{color:var(--paper)}
+code{
+  font-family:var(--fm);font-size:.86em;background:var(--raise);
+  border:1px solid var(--line-soft);border-radius:4px;padding:1px 6px;
+}
+.note{
+  background:var(--mid);border-left:3px solid var(--beacon);
+  border-radius:0 8px 8px 0;padding:12px 16px;color:var(--dim);
+  font-size:.93rem;margin:18px 0;
+}
+.foot{
+  margin-top:56px;padding-top:16px;border-top:1px solid var(--line-soft);
+  color:var(--dimmer);font-size:.85rem;
+}
+.foot a{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1><span class="call">OH9AB</span> — radiopropagaatiotyökalut</h1>
+<p class="sub">Radioverkkojen kuuluvuuden ennustaminen suomalaisella
+avoimella datalla: Maanmittauslaitoksen 2&nbsp;m korkeusmalli ja
+Luonnonvarakeskuksen puustoaineisto. Metsä on Suomessa usein suurempi
+vaimennuksen lähde kuin maasto — tämä työkalu mallintaa molemmat.</p>
+
+<a class="card" href="kuuluvuus.html">
+  <b>Kuuluvuus</b><span class="tag">Meshtastic-peittoennuste</span>
+  <p>Yhden tai useamman aseman peittoaluekartta LoRa-verkoille
+  (868&nbsp;MHz). ITU-R&nbsp;P.1812-8 -laskentamalli, maastoprofiilit,
+  Fresnel-vyöhyke ja MVMI-puusto latvuskorkeusprofiilina.</p>
+</a>
+
+<a class="card" href="puheradio.html">
+  <b>Puheradio</b><span class="tag">2 m / 70 cm FM</span>
+  <p>Kaksisuuntainen peittoennuste puheradiolle: kartta näyttää alueen,
+  jolla QSO oikeasti onnistuu molempiin suuntiin. Asematyypit
+  (tukiasema, ajoneuvo, käsikapula) molemmille päille, sama laskentamalli
+  ja aineisto kuin Meshtastic-työkalussa.</p>
+</a>
+
+<a class="card" href="docs/keraysohje.md">
+  <b>Osallistu mittauksiin</b><span class="tag">keräysohje</span>
+  <p>Malli ennustaa, mutta sitä ei ole vielä verrattu todellisuuteen.
+  Jos sinulla on Meshtastic-solmu, voit auttaa: ohje kertoo miten saat sen
+  lähettämään kuuluvuushavaintoja, mitä tietoja jaat ja millainen data on
+  arvokkainta.</p>
+</a>
+
+<h2>Kaksi laskentamallia</h2>
+<p>Molemmissa työkaluissa on kaksi nappia. <b>Esikatselu — Deygout</b> on
+nopea (sekunteja): vapaa tila, terävän särmän diffraktio ja saturoituva
+metsätermi. Sillä haarukoidaan asemapaikkoja. <b>Laske peitto — ITU-R
+P.1812-8</b> on varsinainen ennuste (noin puoli minuuttia asemaa kohti):
+delta-Bullington-diffraktio, pallomaisen maan diffraktio, troposfäärisironta,
+kanavoituminen ja suosituksen oma paikkavaihtelumalli. Se käsittelee myös
+puuston omalla tavallaan — latvuskorkeusprofiilina osana diffraktiota, ei
+erillisenä dB/m-terminä.</p>
+
+<p>Toteutus on rivi riviltä käännetty ITU:n omasta referenssitoteutuksesta
+ja läpäisee <b>kaikki 63 ITU:n virallista validointiprofiilia</b> samalla
+1e-8 tarkkuudella kuin referenssi.</p>
+
+<h2>Pikaohje</h2>
+<ol>
+  <li>Avaa <a href="kuuluvuus.html">peittoennuste</a>. Oletusaineistona on
+      MML:n 2&nbsp;m korkeusmalli ja Luken MVMI-puusto tältä palvelimelta.</li>
+  <li><b>Lisää asemia</b> napauttamalla karttaa. Markerin numero on
+      antennin korkeus maanpinnasta metreinä; asemalistassa voit muokata
+      korkeutta tai poistaa aseman.</li>
+  <li>Säädä radioasetukset (taajuus, teho, antennivahvistukset,
+      herkkyysraja) ja paina <b>Esikatselu — Deygout</b> nopeaan
+      silmäykseen.</li>
+  <li>Varsinaista ennustetta varten paina <b>Laske peitto — ITU-R
+      P.1812-8</b>. Osiossa <b>ITU-R P.1812-8</b> on valmiiksi karkeat
+      testausarvot kentissä <b>ΔN</b> ja <b>N₀</b> (ks. huomautus alla) —
+      tarkkaan mallinnukseen ne kannattaa korvata oikeilla.</li>
+  <li>Laskennan jälkeen <b>napauta karttaa</b> nähdäksesi maastoprofiilin
+      valitusta pisteestä lähimpään asemaan: Fresnel-vyöhyke, latvustovyö
+      ja määräävä diffraktiosärmä. Luvut lasketaan sillä mallilla, jolla
+      kartta ajettiin.</li>
+  <li><b>Kopioi linkki</b> tallentaa kaikki asetukset ja asemat osoitteeseen
+      — jaa se, niin toinen näkee saman tilanteen.</li>
+</ol>
+
+<div class="note">
+<b>ΔN=40 ja N₀=315 ovat karkeita testausoletuksia</b> (tyypillisiä arvoja
+Pohjois-Suomen leveysasteille), jotta laskentaa voi kokeilla heti ilman
+ITU:n karttoja. P.1812 tarvitsee tarkkaan mallinnukseen reitin keskipisteen
+oikeat ilmakehäarvot, jotka luetaan ITU:n kartoista DN50 ja N050. Ne ovat
+ITU:n suojattua aineistoa, jota ei saa levittää eteenpäin — siksi niitä ei
+ole paketoitu tähän työkaluun. Kun valitset asemapaikkoja lopullisesti,
+lataa kartat ITU:lta ja korvaa testiarvot oikeilla.
+</div>
+
+<div class="note">
+Laskenta tapahtuu kokonaan selaimessasi. Jos viet välilehden taustalle
+kesken laskennan, laskenta pysähtyy ja jatkuu kun palaat välilehteen.
+</div>
+
+<h2>Aineiston kattavuus</h2>
+<p>Korkeus- ja puustoruudut kattavat Kemijoen alajuoksun käytävästä
+Sodankylän tasolle ulottuvan alueen: n. 20,5–29,7° itäistä pituutta,
+65,3–67,5° pohjoista leveyttä (Rovaniemi–Kemi-käytävä + pohjoislaajennus,
+koko leveydeltä — mukana mm. Simo, Tervola, Keminmaa, Tornio, Ranua,
+Sodankylä, Kittilä ja Kolari). Korkeus zoom-tasoilla 9–14 (93&nbsp;600
+ruutua), puusto 9–12 (5&nbsp;900 ruutua, MVMI:n 16&nbsp;m lähderesoluutio
+vastaa z12-pikseliä). Muualla työkalu käyttää globaalia ~30&nbsp;m
+Terrarium-aineistoa, joka ei sisällä puustoa. Kattavuutta laajennetaan
+tarpeen mukaan kohti koko entisen Lapin läänin aluetta (nykyinen alue on
+n. kolmasosa siitä).</p>
+
+<h2>Tunnetut rajoitukset</h2>
+<p>Nämä kannattaa tietää ennen kuin luottaa lukuihin:</p>
+<ul>
+  <li><b>Radioilmastovyöhyke on aina sisämaa.</b> P.1812 kohtelee merta ja
+      rannikkoa eri tavalla kuin sisämaata, mutta meillä ei vielä ole
+      maanpeiteaineistoa sen erottamiseen. Perämeren rannalla ja Kemijoen
+      suulla ennuste siksi todennäköisesti aliarvioi kantaman.</li>
+  <li><b>Mallia ei ole vielä kalibroitu mittauksilla.</b> Metsä- ja
+      vuodenaikakertoimet ovat kirjallisuuden suuruusluokkia, eivät tältä
+      alueelta mitattuja.</li>
+  <li><b>Ei rakennuksia eikä kaupunkiympäristöä.</b> Latvuskorkeus tulee
+      metsäaineistosta; rakennukset puuttuvat kokonaan.</li>
+  <li><b>Deygout-esikatselu on eri malli</b> eikä sen lukuja pidä verrata
+      P.1812:n lukuihin keskenään.</li>
+</ul>
+
+<h2>Tila ja suunnitelma</h2>
+<ul>
+  <li>✅ Korkeusruudut: MML 2&nbsp;m korkeusmalli (N2000), Terrarium-koodaus</li>
+  <li>✅ Puusturuudut: Luke MVMI 2023, keskipituus + latvuspeittävyys</li>
+  <li>✅ Puustodata etenemismallissa (latvuskorkeusprofiili)</li>
+  <li>✅ 2&nbsp;m / 70&nbsp;cm puheradio, kaksisuuntainen linkkibudjetti</li>
+  <li>✅ ITU-R P.1812-8 -laskentamalli, validoitu ITU:n omilla profiileilla</li>
+  <li>⏳ Validointi Meshtastic-lokeja vasten (RSSI/SNR): mitattu vs. mallinnettu</li>
+  <li>⏳ Metsäkertoimien kalibrointi mittausjoukolla</li>
+  <li>⏳ Maanpeiteaineisto: meri, rannikko ja vesistöt</li>
+</ul>
+
+<div class="foot">
+<p>Aineistot: Maanmittauslaitoksen korkeusmalli 2&nbsp;m (CC&nbsp;BY&nbsp;4.0)
+· Luonnonvarakeskuksen monilähteinen valtakunnan metsien inventointi
+MVMI&nbsp;2023 (CC&nbsp;BY&nbsp;4.0) · Taustakartat ©&nbsp;OpenStreetMap,
+©&nbsp;OpenTopoMap.</p>
+<p>Etenemismalli: Recommendation ITU-R&nbsp;P.1812-8, käännetty ITU:n
+referenssitoteutuksesta. ITU:n digitaalikarttoja (DN50, N050) ei sisälly
+tähän ohjelmistoon.</p>
+<p>Avoin lähdekoodi, MIT-lisenssi.</p>
+</div>
+
+</div>
+</body>
+</html>

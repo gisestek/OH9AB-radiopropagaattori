@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Puheradio — 2 m / 70 cm peittoennuste</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui.css">
+</head>
+<body>
+<div id="app">
+
+  <aside id="panel">
+    <button id="sheet-handle" aria-label="Avaa tai sulje asetukset"><i></i></button>
+    <div class="brand">
+      <h1>Puheradio<span class="dot">.</span></h1>
+      <p>2 m / 70 cm FM · kaksisuuntainen</p>
+    </div>
+
+    <div class="scroll">
+
+      <section class="grp">
+        <h2>Kiinteät asemat</h2>
+        <div id="sites"></div>
+        <p class="hint">Napauta karttaa lisätäksesi aseman. Numero on antennin
+        korkeus maanpinnasta. Kaikki kartan asemat käyttävät alla olevaa
+        asematyyppiä.</p>
+      </section>
+
+      <section class="grp">
+        <h2>Taajuus</h2>
+        <div class="row">
+          <div class="f">
+            <label for="band">Bandi</label>
+            <select id="band">
+              <option value="145.500">2 m · 145.500 FM</option>
+              <option value="433.500">70 cm · 433.500 FM</option>
+            </select>
+          </div>
+          <div class="f"><label for="freq">Taajuus (MHz)</label><input type="number" id="freq" value="145.500" step="0.0125"></div>
+        </div>
+        <p class="hint">Bandin vaihto asettaa taajuuden ja ehdottaa metsän
+        ominaisvaimennusta (2 m vaimenee latvustossa vähemmän kuin 70 cm).</p>
+      </section>
+
+      <section class="grp">
+        <h2>Asema (kiinteä)</h2>
+        <div class="row">
+          <div class="f">
+            <label for="stype">Asematyyppi</label>
+            <select id="stype">
+              <option value="base">Tukiasema</option>
+              <option value="mobile">Ajoneuvoasema</option>
+              <option value="ht">Käsikapula</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="f"><label for="aptx">Teho (dBm)</label><input type="number" id="aptx" value="47" step="1"></div>
+          <div class="f"><label for="again">Antenni (dBi)</label><input type="number" id="again" value="6" step="0.5"></div>
+        </div>
+        <div class="row">
+          <div class="f"><label for="acab">Kaapelihäviö (dB)</label><input type="number" id="acab" value="2" step="0.1"></div>
+          <div class="f"><label for="asens">Herkkyys (dBm)</label><input type="number" id="asens" value="-119" step="0.5"></div>
+        </div>
+        <p class="hint">Herkkyys 12 dB SINAD: 0,25 µV ≈ −119 dBm. 50 W = 47 dBm,
+        5 W = 37 dBm.</p>
+      </section>
+
+      <section class="grp">
+        <h2>Vastapuoli (liikkuva)</h2>
+        <div class="row">
+          <div class="f">
+            <label for="btype">Asematyyppi</label>
+            <select id="btype">
+              <option value="ht">Käsikapula</option>
+              <option value="mobile">Ajoneuvoasema</option>
+              <option value="base">Tukiasema</option>
+            </select>
+          </div>
+          <div class="f"><label for="bh">Korkeus maasta (m)</label><input type="number" id="bh" value="1.5" step="0.5"></div>
+        </div>
+        <div class="row">
+          <div class="f"><label for="bptx">Teho (dBm)</label><input type="number" id="bptx" value="37" step="1"></div>
+          <div class="f"><label for="bgain">Antenni (dBi)</label><input type="number" id="bgain" value="-3" step="0.5"></div>
+        </div>
+        <div class="row">
+          <div class="f"><label for="bcab">Kaapelihäviö (dB)</label><input type="number" id="bcab" value="0" step="0.1"></div>
+          <div class="f"><label for="bsens">Herkkyys (dBm)</label><input type="number" id="bsens" value="-117" step="0.5"></div>
+        </div>
+        <p class="hint">Käsikapulan antennivahvistus sisältää kehovaimennuksen
+        (kumiankka ~0 dBi − keho ~3 dB). Kartta näyttää heikomman suunnan
+        marginaalin — eli alueen, jolla puheyhteys toimii molempiin suuntiin.</p>
+      </section>
+
+      <section class="grp">
+        <h2>Maasto ja puusto</h2>
+        <div class="row">
+          <div class="f">
+            <label for="tsrc">Korkeus- ja puustoaineisto</label>
+            <select id="tsrc">
+              <option value="custom">MML 2 m + Luke MVMI -puusto (tämä palvelin)</option>
+              <option value="terrarium">Terrarium / AWS (globaali ~30 m, ei puustoa)</option>
+              <option value="synth">Synteettinen (demo)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" id="customRow" style="display:none">
+          <div class="f">
+            <label for="turl">Ruutu-URL</label>
+            <input type="text" id="turl" value="tiles/skr/{z}/{x}/{y}.png" spellcheck="false">
+          </div>
+        </div>
+        <div class="row" id="customRow2" style="display:none">
+          <div class="f">
+            <label for="tenc">Koodaus</label>
+            <select id="tenc">
+              <option value="terrarium">Terrarium</option>
+              <option value="mapbox">Mapbox Terrain-RGB</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" id="customRow3" style="display:none">
+          <div class="f">
+            <label for="furl">Puusto-URL (R = pituus m, G = peitto %)</label>
+            <input type="text" id="furl" value="tiles/forest/{z}/{x}/{y}.png" spellcheck="false">
+          </div>
+        </div>
+        <div class="row"><div class="f">
+          <label for="cheight">Latvuston korkeus (vara)</label>
+          <div class="rng"><input type="range" id="cheight" min="0" max="30" step="1" value="18"><b id="cheightV">18 m</b></div>
+        </div></div>
+        <div class="row"><div class="f">
+          <label for="ccover">Metsän peittävyys (vara)</label>
+          <div class="rng"><input type="range" id="ccover" min="0" max="100" step="5" value="65"><b id="ccoverV">65 %</b></div>
+        </div></div>
+        <div class="row"><div class="f">
+          <label for="cgamma">Ominaisvaimennus</label>
+          <div class="rng"><input type="range" id="cgamma" min="0" max="60" step="1" value="10"><b id="cgammaV">0.10 dB/m</b></div>
+        </div></div>
+        <p class="hint">Jos puusto-URL on asetettu ja ruudut löytyvät, latvuston
+        korkeus ja peittävyys luetaan MVMI-datasta ja liukusäätimet ovat vain
+        varalla. Ominaisvaimennus on kalibrointikerroin myös datan kanssa.</p>
+        <div class="row"><div class="f">
+          <label for="season">Vuodenaika / latvuston tila</label>
+          <select id="season">
+            <option value="1.0">Kesä — lehti puussa (referenssi)</option>
+            <option value="0.8">Talvi — kuiva pakkanen (×0,8)</option>
+            <option value="1.3">Talvi — tykkylumi / märkä lumi (×1,3)</option>
+            <option value="1.15">Syksy/kevät — märkä latvusto (×1,15)</option>
+          </select>
+        </div></div>
+        <p class="hint">Kerroin skaalaa ominaisvaimennusta. Arvot ovat
+        suuntaa-antavia (ITU-R P.833 -kirjallisuus) kunnes ne kalibroidaan
+        mittauksilla.</p>
+      </section>
+
+      <section class="grp">
+        <h2>Laskenta</h2>
+        <div class="row">
+          <div class="f"><label for="range">Säde (km)</label><input type="number" id="range" value="30" min="1" max="120" step="1"></div>
+          <div class="f">
+            <label for="conf">Paikkavarmuus</label>
+            <select id="conf">
+              <option value="50">50 % (mediaani)</option>
+              <option value="90" selected>90 %</option>
+              <option value="95">95 %</option>
+            </select>
+          </div>
+        </div>
+        <div class="row"><div class="f">
+          <label for="sigma">Varjostushajonta</label>
+          <div class="rng"><input type="range" id="sigma" min="0" max="14" step="0.5" value="8"><b id="sigmaV">8.0 dB</b></div>
+        </div></div>
+        <div class="row"><div class="f">
+          <label for="kfac">Maan säteen kerroin k</label>
+          <div class="rng"><input type="range" id="kfac" min="100" max="200" step="5" value="133"><b id="kfacV">1.33</b></div>
+        </div></div>
+        <p class="hint">Esikatselu: vapaa tila + terävän särmän diffraktio
+        (Deygout) + metsä. Varjostushajonta koskee vain esikatselua — P.1812
+        laskee paikkavaihtelun itse.</p>
+      </section>
+
+      <section class="grp">
+        <h2>ITU-R P.1812-8</h2>
+        <div class="row">
+          <div class="f">
+            <label for="ptime">Aikaosuus p</label>
+            <select id="ptime">
+              <option value="50" selected>50 % (mediaani)</option>
+              <option value="10">10 %</option>
+              <option value="1">1 %</option>
+            </select>
+          </div>
+          <div class="f">
+            <label for="pol">Polarisaatio</label>
+            <select id="pol">
+              <option value="2" selected>Vertikaali</option>
+              <option value="1">Horisontaali</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="f"><label for="dn">ΔN (N-yks./km)</label><input type="number" id="dn" value="40" step="0.1" placeholder="ITU DN50"></div>
+          <div class="f"><label for="n0">N₀ (N-yks.)</label><input type="number" id="n0" value="315" step="0.1" placeholder="ITU N050"></div>
+        </div>
+        <p class="hint">ΔN=40, N₀=315 ovat karkeita testausoletuksia (tyypillisiä
+        arvoja Pohjois-Suomen leveysasteille), jotta laskentaa voi kokeilla heti.
+        <b>Tarkkaan mallinnukseen ja asemapaikkojen valintaan</b> lue oikeat
+        arvot ITU:n kartoista DN50 ja N050 reitin keskipisteessä ja korvaa nämä
+        käsin. Karttoja ei saa levittää eteenpäin ilman ITU:n lupaa, joten niitä
+        ei paketoida mukaan.</p>
+        <p class="hint">Radioilmastovyöhyke on toistaiseksi sisämaa (4) koko
+        reitillä; meri ja rannikko vaativat maanpeiteaineiston, jota ei vielä ole.
+        Perämeren rannalla tämä aliarvioi kantaman.</p>
+      </section>
+
+      <section class="grp">
+        <h2>Jaa</h2>
+        <div class="row">
+          <button class="btn f" id="share">Kopioi linkki</button>
+          <button class="btn f" id="dlpng">Lataa PNG</button>
+        </div>
+        <p class="hint">Linkki sisältää kaikki asetukset ja asemat.
+        <a href="index.html">← Etusivulle</a></p>
+      </section>
+
+    </div>
+
+    <footer class="act">
+      <div class="runs">
+        <button class="btn" id="run">Esikatselu — Deygout</button>
+        <button class="btn primary" id="runItu">Laske peitto — ITU-R P.1812-8</button>
+      </div>
+      <button class="btn icon" id="clear" title="Poista kaikki asemat" aria-label="Poista kaikki asemat">✕</button>
+    </footer>
+  </aside>
+
+  <main id="stage">
+    <div id="map"></div>
+
+    <div id="status">
+      <span class="k">Valmis.</span> Napauta karttaa.
+      <div id="bar-prog"><i></i></div>
+    </div>
+
+    <div id="legend">
+      <h3>Kaksisuunt. marginaali</h3>
+      <div id="bar"></div>
+      <div id="ticks"><span id="t0">0</span><span id="t1">+15</span><span id="t2">+30 dB</span></div>
+    </div>
+
+    <section id="profile" aria-live="polite">
+      <div class="p-head">
+        <h3>Maastoprofiili</h3>
+        <div class="verdict" id="pv">—</div>
+        <button class="close" id="pclose" aria-label="Sulje profiili">✕</button>
+      </div>
+      <canvas id="pcanvas"></canvas>
+      <div class="p-stats">
+        <div><span>Etäisyys</span><b id="s-d">—</b></div>
+        <div><span>Marginaali</span><b id="s-m">—</b></div>
+        <div><span>Rajoittava</span><b id="s-lim">—</b></div>
+        <div><span>Diffraktio</span><b id="s-df">—</b></div>
+        <div><span id="s-vg-lbl">Metsä</span><b id="s-vg">—</b></div>
+        <div><span>Fresnel</span><b id="s-fr">—</b></div>
+      </div>
+    </section>
+
+    <div id="toast"></div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="core/p1812.js"></script>
+<script src="radio-core.js"></script>
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════
+   Puheradio — 2 m / 70 cm FM-peittoennuste, kaksisuuntainen
+
+   Fysiikka on jaetussa radio-core.js:ssä. Kaksisuuntaisuus:
+   etenemishäviö L on sama molempiin suuntiin, joten kartta näyttää
+   heikomman suunnan marginaalin
+
+       marg = (GA + GB) − L + min(PA − sensB, PB − sensA)
+
+   joka saadaan computeRadialista suoraan asettamalla
+   cfg.ptx = min(PA − sensB, PB − sensA), cfg.gtx = GA + GB,
+   cfg.lcab = cfg.grx = 0. Rampin nollakohta = 12 dB SINAD -raja.
+   ═══════════════════════════════════════════════════════════════ */
+
+const $ = id => document.getElementById(id);
+
+/* ── Asematyypit ─────────────────────────────────────────────
+   Teho dBm, antenni dBi, kaapeli dB, korkeus m, herkkyys dBm.
+   Suuntaa-antavat FM-oletukset; kaikki kentät jäävät muokattaviksi. */
+const STYPES = {
+  base:   {n:'Tukiasema',     ptx:47, gain:6,  cab:2,   h:20,  sens:-119},
+  mobile: {n:'Ajoneuvoasema', ptx:47, gain:3,  cab:0.5, h:2,   sens:-119},
+  ht:     {n:'Käsikapula',    ptx:37, gain:-3, cab:0,   h:1.5, sens:-117}
+};
+/* Metsän ominaisvaimennuksen bandioletus (dB/m, kalibroitava):
+   ~0.10 @ 145 MHz, ~0.18 @ 433 MHz (ITU-R P.833 -suuruusluokat). */
+const BAND_GAMMA = {'145.500':10, '433.500':18};
+
+/* ═══ Sovellus ════════════════════════════════════════════════ */
+
+const state = {
+  sites:[], markers:[], overlay:null, probe:null, probeMk:null,
+  raster:null, busy:false, cancel:false, terrain:null, lastPNG:null
+};
+
+const map = L.map('map',{zoomControl:true, preferCanvas:true}).setView([66.609,25.840],10);
+const baseOSM = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19, attribution:'© OpenStreetMap'
+});
+const baseTopo = L.tileLayer('https://a.tile.opentopomap.org/{z}/{x}/{y}.png',{
+  maxZoom:17, attribution:'© OpenTopoMap, © OpenStreetMap'
+});
+baseTopo.addTo(map);
+L.control.layers({'Maastokartta':baseTopo,'Peruskartta':baseOSM},null,{position:'topright'}).addTo(map);
+
+/* ── asetusten luku ──────────────────────────────────────────── */
+function cfg(){
+  const PA=+$('aptx').value, GA=+$('again').value-+$('acab').value, SA=+$('asens').value;
+  const PB=+$('bptx').value, GB=+$('bgain').value-+$('bcab').value, SB=+$('bsens').value;
+  const limDown=PA-SB, limUp=PB-SA;
+  const c={
+    freq:+$('freq').value,
+    // Kaksisuuntainen budjetti computeRadialin kenttiin, ks. yllä.
+    ptx:Math.min(limDown,limUp), gtx:GA+GB, lcab:0, grx:0,
+    hrx:+$('bh').value,
+    sens:0,                     // marginaalin nollaraja
+    range:+$('range').value*1000,
+    cheight:+$('cheight').value, ccover:+$('ccover').value/100,
+    cgamma:+$('cgamma').value/100, sigma:+$('sigma').value,
+    // Paikkavarmuus: sama valinta molemmille malleille. Deygout käyttää
+    // normaalijakauman z-arvoa, P.1812 prosenttiosuutta suoraan.
+    z:({50:0,90:1.282,95:1.645})[$('conf').value] ?? 1.282,
+    pL:+$('conf').value,
+    pTime:+$('ptime').value,
+    pol:+$('pol').value,
+    DN:$('dn').value===''?undefined:+$('dn').value,
+    N0:$('n0').value===''?undefined:+$('n0').value,
+    k:+$('kfac').value/100,
+    tsrc:$('tsrc').value, turl:$('turl').value, tenc:$('tenc').value,
+    furl:$('furl').value.trim(),
+    sfac:+$('season').value,
+    // Probea varten:
+    PA,GA,SA,PB,GB,SB,
+    limDir: limDown<=limUp ? 'asema → vastapuoli' : 'vastapuoli → asema'
+  };
+  c.nAz=720;
+  c.nR = c.range>40000 ? 300 : c.range>15000 ? 260 : 220;
+  c.bufY=new Float32Array(c.nR+1);
+  c.bufD=new Float32Array(c.nR+1);
+  c.bufC=new Float32Array(c.nR+1);
+  c.bufF=new Float32Array(c.nR+1);
+  c.bufDk=new Float64Array(c.nR+1);
+  c.bufH =new Float64Array(c.nR+1);
+  c.bufR =new Float64Array(c.nR+1);
+  c.bufZ =new Float64Array(c.nR+1);
+  c.bufLa=new Float64Array(c.nR+1);
+  c.bufLo=new Float64Array(c.nR+1);
+  c.wa=Math.min(1000,Math.max(1,2*c.range/760));
+  return c;
+}
+
+/* ── UI-täyttö ───────────────────────────────────────────────── */
+function applyType(prefix, t){
+  $(prefix+'ptx').value=t.ptx;
+  $(prefix==='a'?'again':'bgain').value=t.gain;
+  $(prefix==='a'?'acab':'bcab').value=t.cab;
+  $(prefix==='a'?'asens':'bsens').value=t.sens;
+  if(prefix==='b') $('bh').value=t.h;
+}
+$('stype').onchange=()=>{ applyType('a', STYPES[$('stype').value]); saveURL(); };
+$('btype').onchange=()=>{ applyType('b', STYPES[$('btype').value]); saveURL(); };
+$('band').onchange=()=>{
+  $('freq').value=$('band').value;
+  const g=BAND_GAMMA[$('band').value];
+  if(g!==undefined){ $('cgamma').value=g; $('cgamma').dispatchEvent(new Event('input')); }
+  saveURL();
+};
+$('tsrc').onchange=()=>{
+  const c=$('tsrc').value==='custom'?'flex':'none';
+  $('customRow').style.display=c; $('customRow2').style.display=c;
+  $('customRow3').style.display=c; saveURL();
+};
+// Näytä custom-rivit heti (oletus on custom). Ei onchange()-kutsua tässä:
+// se kutsuisi saveURL:ää ennen kuin FIELDS-vakio on alustettu.
+{ const c0=$('tsrc').value==='custom'?'flex':'none';
+  $('customRow').style.display=c0; $('customRow2').style.display=c0;
+  $('customRow3').style.display=c0; }
+
+function bindRange(id,fmt){
+  const i=$(id), b=$(id+'V');
+  const up=()=>{ b.textContent=fmt(+i.value); };
+  i.addEventListener('input',up); up();
+  i.addEventListener('change',saveURL);
+}
+bindRange('cheight',v=>v+' m');
+bindRange('ccover',v=>v+' %');
+bindRange('cgamma',v=>(v/100).toFixed(2)+' dB/m');
+bindRange('sigma',v=>v.toFixed(1)+' dB');
+bindRange('kfac',v=>(v/100).toFixed(2));
+['freq','aptx','again','acab','asens','bptx','bgain','bcab','bh','bsens',
+ 'range','conf','turl','tenc','furl','season','ptime','pol','dn','n0']
+  .forEach(id=>$(id).addEventListener('change',saveURL));
+
+/* ── asemalista ──────────────────────────────────────────────── */
+function renderSites(){
+  const box=$('sites'); box.innerHTML='';
+  if(!state.sites.length){
+    box.innerHTML='<div class="empty">Ei asemia vielä.<br>Napauta karttaa.</div>';
+    return;
+  }
+  state.sites.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='site';
+    d.innerHTML=`<div class="idx">${i+1}</div>
+      <div class="nm">${s.name}<small>${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</small></div>
+      <input class="h" type="number" value="${s.h}" min="0" max="300" step="1" aria-label="Antennin korkeus">
+      <span class="u">m</span>
+      <button class="x" title="Poista asema" aria-label="Poista asema ${i+1}">✕</button>`;
+    d.querySelector('input').addEventListener('change',e=>{
+      s.h=Math.max(0,+e.target.value||0); saveURL();
+    });
+    d.querySelector('.x').onclick=()=>{
+      map.removeLayer(state.markers[i]);
+      state.markers.splice(i,1); state.sites.splice(i,1);
+      renderSites(); saveURL();
+    };
+    box.appendChild(d);
+  });
+}
+
+function addSite(lat,lon,h,name){
+  const i=state.sites.length;
+  const s={lat,lon,h:h??STYPES[$('stype').value].h,name:name||('Asema '+(i+1))};
+  state.sites.push(s);
+  const mk=L.marker([lat,lon],{
+    draggable:true,
+    icon:L.divIcon({className:'node-pin',html:'<i></i>',iconSize:[15,15],iconAnchor:[7.5,7.5]})
+  }).addTo(map);
+  mk.on('dragend',e=>{ const p=e.target.getLatLng(); s.lat=p.lat; s.lon=p.lng; renderSites(); saveURL(); });
+  state.markers.push(mk);
+  renderSites(); saveURL();
+}
+
+map.on('click',e=>{
+  if(state.busy) return;
+  if(state.raster && state.sites.length){ setProbe(e.latlng.lat,e.latlng.lng); }
+  else addSite(e.latlng.lat,e.latlng.lng);
+});
+
+$('clear').onclick=()=>{
+  state.markers.forEach(m=>map.removeLayer(m));
+  state.markers=[]; state.sites=[];
+  if(state.overlay){ map.removeLayer(state.overlay); state.overlay=null; }
+  state.raster=null; hideProfile(); renderSites(); saveURL();
+  status('Tyhjennetty.','Napauta karttaa lisätäksesi aseman.');
+};
+
+/* ── tilarivi ────────────────────────────────────────────────── */
+function status(k,t,warn){
+  $('status').className = warn?'warn':'';
+  $('status').firstElementChild.textContent=k;
+  $('status').childNodes[1].nodeValue=' '+(t||'');
+}
+function progress(f){
+  const b=$('bar-prog');
+  if(f==null){ b.style.display='none'; return; }
+  b.style.display='block'; b.firstElementChild.style.width=(f*100).toFixed(1)+'%';
+}
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2200);
+}
+
+/* ── asteikko ────────────────────────────────────────────────── */
+const MARG_TOP=30;
+function drawLegend(){
+  const stops=RAMP.map(r=>`rgb(${r.c.map(Math.round).join(',')}) ${(r.t*100).toFixed(0)}%`).join(',');
+  $('bar').style.background=`linear-gradient(90deg,${stops})`;
+}
+drawLegend();
+
+/* ═══ Ajo ════════════════════════════════════════════════════ */
+async function runCoverage(model){
+  if(state.busy){ state.cancel=true; return; }
+  if(!state.sites.length){ toast('Lisää ensin vähintään yksi asema.'); return; }
+
+  const c=cfg();
+  c.model=model;
+  if(model==='p1812' && (c.DN===undefined || c.N0===undefined)){
+    toast('Täytä ΔN ja N₀ ITU:n kartoista ennen P.1812-laskentaa.');
+    return;
+  }
+  const stats={errors:0,lastError:''};
+  state.busy=true; state.cancel=false;
+  const btn = model==='p1812' ? $('runItu') : $('run');
+  const btnLabel = btn.textContent;
+  btn.textContent='Keskeytä';
+  hideProfile();
+
+  // 1. yhteinen rajaus
+  let N=-90,S=90,W=180,E=-180;
+  for(const s of state.sites){
+    const dLat=c.range/111320, dLon=c.range/(111320*Math.cos(s.lat*DEG));
+    N=Math.max(N,s.lat+dLat); S=Math.min(S,s.lat-dLat);
+    W=Math.min(W,s.lon-dLon); E=Math.max(E,s.lon+dLon);
+  }
+  const yT=merc(N), yB=merc(S);
+  const RW=Math.min(900, 760);
+  const RH=Math.max(80,Math.min(1000, Math.round(RW*(yT-yB)/((E-W)*DEG))));
+  const ras=new Float32Array(RW*RH).fill(-999);
+
+  const cv=document.createElement('canvas'); cv.width=RW; cv.height=RH;
+  const cx2=cv.getContext('2d');
+  const img=cx2.createImageData(RW,RH);
+
+  if(state.overlay){ map.removeLayer(state.overlay); state.overlay=null; }
+  const bounds=[[S,W],[N,E]];
+
+  const cutoff=c.sens, top=MARG_TOP;
+  const paint=(buf)=>{
+    const d=img.data;
+    for(let i=0;i<RW*RH;i++){
+      const v=buf[i];
+      if(v<cutoff){ d[i*4+3]=0; continue; }
+      const col=rampColor((v-cutoff)/(top-cutoff));
+      d[i*4]=col[0]|0; d[i*4+1]=col[1]|0; d[i*4+2]=col[2]|0;
+      d[i*4+3]=Math.min(1,(v-cutoff)/5)*186;
+    }
+    cx2.putImageData(img,0,0);
+    const url=cv.toDataURL();
+    state.lastPNG=url;
+    if(state.overlay) state.overlay.setUrl(url);
+    else state.overlay=L.imageOverlay(url,bounds,{opacity:1,interactive:false}).addTo(map);
+  };
+
+  const nSites=state.sites.length;
+  try{
+    for(let si=0; si<nSites; si++){
+      if(state.cancel) break;
+      const site=state.sites[si];
+
+      // 2. maasto + puusto
+      status('Haetaan maastoa…', `asema ${si+1}/${nSites}`);
+      const T=new Terrain();
+      await T.load(site.lat, site.lon, c.range*1.05, c,
+        f=>progress((si + f*0.3)/nSites));
+      state.terrain=T;
+
+      T.forest=null;
+      if(c.tsrc==='custom' && c.furl && c.furl.includes('{z}')){
+        status('Haetaan puustoa…', `asema ${si+1}/${nSites}`);
+        const FF=new Terrain('forest');
+        await FF.load(site.lat, site.lon, c.range*1.05, c,
+          f=>progress((si + 0.3 + f*0.1)/nSites));
+        if(FF.ok) T.forest=FF;
+      }
+
+      if(T.mode==='synth'){
+        status('SYNTEETTINEN MAASTO —', 'oikeaa korkeusdataa ei saatu. Tulokset eivät ole todellisia.', true);
+      }else{
+        const veg = T.forest ? `MVMI-puusto z${T.forest.zFine}` : 'puusto säätimistä';
+        const zt = T.zFine===T.zCoarse ? `z${T.zFine}` : `z${T.zFine}–${T.zCoarse}`;
+        const mdl = model==='p1812' ? 'ITU-R P.1812-8' : 'Deygout (esikatselu)';
+        status('Lasketaan…', `${mdl}, ${zt} (${T.resFine.toFixed(1)} m lähellä), ${T.tiles} ruutua${T.miss?', '+T.miss+' puuttuu':''}, ${veg}, rajoittava: ${c.limDir}`);
+      }
+
+      // 3. säteet
+      const polar=new Float32Array(c.nAz*c.nR);
+      const rowBuf=new Float32Array(c.nR);
+      const rasPrev=ras.slice();
+      const CHUNK=24;
+      let doneFrac=0;
+      for(let a0=0; a0<c.nAz; a0+=CHUNK){
+        if(state.cancel) break;
+        for(let a=a0; a<Math.min(a0+CHUNK,c.nAz); a++){
+          const azv=a*360/c.nAz;
+          if(model==='p1812') computeRadialP1812(azv, site, c, T, rowBuf, stats);
+          else computeRadial(azv, site, c, T, rowBuf);
+          polar.set(rowBuf, a*c.nR);
+        }
+        doneFrac=Math.min(1,(a0+CHUNK)/c.nAz);
+        progress((si + 0.4 + 0.55*doneFrac)/nSites);
+        splat(polar, site, c, rasPrev, RW, RH, W, E, yT, yB, doneFrac);
+        paint(rasPrev);
+        await new Promise(r=>requestAnimationFrame(r));
+      }
+      smoothPolar(polar, c);
+      splat(polar, site, c, ras, RW, RH, W, E, yT, yB, doneFrac);
+      site._polar=polar; site._terrain=T;
+    }
+    paint(ras);
+    state.raster={ras,RW,RH,W,E,yT,yB,cutoff,cfg:c};
+    progress(null);
+    if(state.cancel) status('Keskeytetty.','Osittainen tulos näkyvissä.');
+    else status('Valmis.','Napauta karttaa nähdäksesi profiilin.');
+  }catch(err){
+    console.error(err);
+    status('Virhe.', String(err), true);
+  }finally{
+    state.busy=false; state.cancel=false;
+    btn.textContent=btnLabel;
+    if(stats.errors) {
+      console.warn('P.1812: '+stats.errors+' kelvotonta reittiä, viimeisin: '+stats.lastError);
+    }
+  }
+  saveURL();
+}
+$('run').onclick=()=>runCoverage('deygout');
+$('runItu').onclick=()=>runCoverage('p1812');
+
+/* ═══ Profiilinauha ═══════════════════════════════════════════ */
+function setProbe(lat,lon){
+  if(!state.sites.length || !state.terrain) return;
+  const c=state.raster?state.raster.cfg:cfg();
+
+  // vahvin asema
+  let best=null,bd=1e12;
+  for(const s of state.sites){
+    const dy=(lat-s.lat)*111320, dx=(lon-s.lon)*111320*Math.cos(s.lat*DEG);
+    const d=Math.hypot(dx,dy);
+    if(d<bd){ bd=d; best=s; }
+  }
+  if(!best || bd<20) return;
+
+  const T=best._terrain||state.terrain;
+  const n=340, step=bd/n;
+  const az=Math.atan2((lon-best.lon)*111320*Math.cos(best.lat*DEG),(lat-best.lat)*111320);
+  const mLat=111320, mLon=111320*Math.cos(best.lat*DEG);
+  const k2R=2*c.k*RE;
+  const lam=299.792458/c.freq;
+
+  const F=T.forest||null;
+  const h=new Float32Array(n+1), y=new Float32Array(n+1), D=new Float32Array(n+1);
+  const CH=new Float32Array(n+1), CV=new Float32Array(n+1);
+  for(let i=0;i<=n;i++){
+    const d=i*step;
+    const la=best.lat + d*Math.cos(az)/mLat;
+    const lo=best.lon + d*Math.sin(az)/mLon;
+    D[i]=d; h[i]=T.sample(la,lo); y[i]=h[i]-d*d/k2R;
+    if(F){ CH[i]=F.sample(la,lo); CV[i]=F.sampleCov(la,lo); }
+    else { CH[i]=c.cheight;       CV[i]=c.ccover; }
+  }
+  const txA=y[0]+best.h, rxA=y[n]+c.hrx, slope=(rxA-txA)/bd;
+
+  let vmax=-1e9,vIdx=-1,vegLen=0,minClear=1e9;
+  for(let i=1;i<n;i++){
+    const line=txA+slope*D[i], d1=D[i], d2=bd-D[i];
+    const v=(y[i]-line)*Math.sqrt(2*bd/(lam*d1*d2));
+    if(v>vmax){vmax=v;vIdx=i;}
+    if(CH[i]>0 && y[i]+CH[i]>line) vegLen+=step*CV[i];
+    const F1=Math.sqrt(lam*d1*d2/bd);
+    const clr=(line-y[i])/F1;
+    if(clr<minClear) minClear=clr;
+  }
+  // Fresnel-raivauma on puhtaasti visuaalinen mittari (geometrinen, ei mene
+  // kumpaankaan malliin) — pätevä sellaisenaan riippumatta mallivalinnasta.
+  const Ldiff_dg=vIdx<0?0:knife(vmax);
+  const Lveg_dg=Math.min(28, c.cgamma*c.sfac*vegLen);
+
+  let margDown, margUp, marg, dfText, vgText;
+  if(c.model==='p1812'){
+    // Yksi Lb-kutsu antaa reitin (resiprookkisen) kokonaisvaimennuksen;
+    // kaksisuuntaisuus tulee samasta budjettitempusta kuin Deygout-haarassa.
+    const m1=n+1;
+    const dkm=new Float64Array(m1), hRaw=new Float64Array(m1);
+    const Rv=new Float64Array(m1), zoneArr=new Float64Array(m1).fill(4);
+    for(let i=0;i<m1;i++){ dkm[i]=D[i]/1000; hRaw[i]=h[i]; Rv[i]=CH[i]; }
+    const htg=Math.max(1,best.h), hrg=Math.max(1,c.hrx);
+    const opt={pL:c.pL, Ptx:1, Gtx:0, Grx:0, DN:c.DN, N0:c.N0, flag4:0,
+               sigmaL:P1812.stdDev(c.freq/1000, hrg, Rv[m1-1], c.wa)};
+    try{
+      const r=P1812.bt_loss(c.freq/1000, c.pTime, dkm, hRaw, Rv, zoneArr,
+        htg, hrg, c.pol, best.lat, lat, best.lon, lon, opt);
+      margDown=c.PA+c.GA+c.GB-r.Lb-c.SB;
+      margUp  =c.PB+c.GA+c.GB-r.Lb-c.SA;
+      marg=Math.min(margDown,margUp);
+      dfText=r.Ld.toFixed(1)+' dB';
+      vgText=(r.pathtype===2?'esteinen':'näköyhteys');
+    }catch(e){
+      margDown=margUp=marg=-999; dfText='—'; vgText='virhe: '+e.message;
+    }
+  }else{
+    const Lfs=32.44+20*Math.log10(c.freq)+20*Math.log10(Math.max(bd,1)/1000);
+    // Kaksisuuntainen: L sama molempiin suuntiin, marginaalit erikseen.
+    const L=Lfs+Ldiff_dg+Lveg_dg+c.sigma*c.z;
+    margDown=c.PA+c.GA+c.GB-L-c.SB;   // asema -> vastapuoli
+    margUp  =c.PB+c.GA+c.GB-L-c.SA;   // vastapuoli -> asema
+    marg=Math.min(margDown,margUp);
+    dfText=Ldiff_dg.toFixed(1)+' dB';
+    vgText=Lveg_dg.toFixed(1)+' dB';
+  }
+
+  if(state.probeMk) map.removeLayer(state.probeMk);
+  state.probeMk=L2marker(lat,lon);
+
+  $('s-d').textContent=(bd/1000).toFixed(2)+' km';
+  $('s-m').textContent=(marg>=0?'+':'')+marg.toFixed(1)+' dB';
+  $('s-m').style.color = marg>=10?'var(--s3)':marg>=0?'var(--s4)':'var(--s5)';
+  $('s-lim').textContent = margDown<=margUp?'alas':'ylös';
+  $('s-lim').title = margDown<=margUp?'asema → vastapuoli':'vastapuoli → asema';
+  $('s-df').textContent=dfText;
+  $('s-vg-lbl').textContent=(c.model==='p1812'?'Reitti':'Metsä');
+  $('s-vg').textContent=vgText;
+  $('s-fr').textContent=(minClear>=1?'vapaa':(minClear*100).toFixed(0)+' %');
+  const pv=$('pv');
+  pv.textContent = marg>=10?'Yhteys toimii':marg>=0?'Kohinainen':'Ei yhteyttä';
+  pv.style.color = marg>=10?'var(--s3)':marg>=0?'var(--s4)':'var(--s5)';
+
+  let cvSum=0; for(let i=0;i<=n;i++) cvSum+=CV[i];
+  drawProfile({h,y,D,n,txA,rxA,slope,bd,lam,vIdx,c,best,CH,CV,cvm:cvSum/(n+1)});
+  $('profile').classList.add('on');
+  state.probe={lat,lon};
+}
+
+// Leaflet-markerin apuri (nimi ei saa varjostaa profiilin L-muuttujaa).
+function L2marker(lat,lon){
+  return L.marker([lat,lon],{
+    icon:L.divIcon({className:'probe-pin',html:'<i></i>',iconSize:[13,13],iconAnchor:[6.5,6.5]})
+  }).addTo(map);
+}
+
+function hideProfile(){
+  $('profile').classList.remove('on');
+  if(state.probeMk){ map.removeLayer(state.probeMk); state.probeMk=null; }
+}
+$('pclose').onclick=hideProfile;
+
+/* drawProfile on jaetussa radio-core.js:ssä. */
+
+/* ═══ Jakaminen ═══════════════════════════════════════════════ */
+const FIELDS=['freq','band','stype','btype','aptx','again','acab','asens',
+  'bptx','bgain','bcab','bh','bsens','range','cheight','ccover','cgamma',
+  'sigma','conf','kfac','tsrc','turl','tenc','furl','season',
+  'ptime','pol','dn','n0'];
+function saveURL(){
+  const o={s:state.sites.map(s=>[+s.lat.toFixed(5),+s.lon.toFixed(5),s.h])};
+  FIELDS.forEach(f=>o[f]=$(f).value);
+  o.c=[map.getCenter().lat.toFixed(4),map.getCenter().lng.toFixed(4),map.getZoom()];
+  try{ history.replaceState(null,'','#'+btoa(unescape(encodeURIComponent(JSON.stringify(o))))); }catch(e){}
+}
+function loadURL(){
+  if(!location.hash||location.hash.length<4) { renderSites(); return; }
+  try{
+    const o=JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
+    FIELDS.forEach(f=>{ if(o[f]!==undefined) $(f).value=o[f]; });
+    $('tsrc').onchange();
+    ['cheight','ccover','cgamma','sigma','kfac'].forEach(id=>$(id).dispatchEvent(new Event('input')));
+    if(o.c) map.setView([+o.c[0],+o.c[1]],+o.c[2]);
+    (o.s||[]).forEach((s,i)=>addSite(s[0],s[1],s[2],'Asema '+(i+1)));
+  }catch(e){ renderSites(); }
+}
+map.on('moveend',saveURL);
+
+$('share').onclick=()=>{
+  saveURL();
+  const u=location.href;
+  if(navigator.clipboard) navigator.clipboard.writeText(u).then(()=>toast('Linkki kopioitu.'),()=>toast('Kopiointi ei onnistunut.'));
+  else toast('Kopioi osoiterivi.');
+};
+$('dlpng').onclick=()=>{
+  if(!state.lastPNG){ toast('Laske peitto ensin.'); return; }
+  const a=document.createElement('a');
+  a.href=state.lastPNG; a.download='puheradio.png'; a.click();
+  toast('PNG ladattu. Sijoitustiedot ovat linkissä.');
+};
+
+/* mobiili: pohjapaneeli */
+$('sheet-handle').onclick=()=>$('panel').classList.toggle('open');
+
+/* aloitus */
+loadURL();
+if(!state.sites.length){
+  addSite(66.6087,25.8403,5,'OH9RAB');
+  status('Valmis.','Paina Laske peitto tai lisää asemia napauttamalla.');
+}
+renderSites();
+</script>
+</body>
+</html>

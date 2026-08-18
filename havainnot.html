@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Havainnot — mitattu kuuluvuus</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui.css">
+</head>
+<body>
+<div id="app">
+
+  <aside id="panel">
+    <button id="sheet-handle" aria-label="Avaa tai sulje asetukset"><i></i></button>
+    <div class="brand">
+      <h1>Havainnot<span class="dot">.</span></h1>
+      <p>Mitattu kuuluvuus, ei malli</p>
+    </div>
+
+    <div class="scroll">
+
+      <section class="grp">
+        <h2>Näkymä</h2>
+        <div class="row">
+          <button class="btn f primary" id="modePoints">Pisteet</button>
+          <button class="btn f" id="modeHeat">Lämpökartta</button>
+        </div>
+        <p class="hint" id="heatHint" style="display:none">
+          Ekstrapoloi signaalitasoa havaintopisteiden välissä ja ympärillä
+          (käänteisen etäisyyden painotus), häivytettynä pois n. 1,5 km
+          jälkeen lähimmästä havainnosta. Ei tiedä maastoa pisteiden välissä
+          — <b>Pisteet</b> näyttää vain sen mitä on todella mitattu.
+        </p>
+      </section>
+
+      <section class="grp">
+        <h2>Lähettäjät</h2>
+        <div class="row">
+          <button class="btn f" id="txAll">Kaikki päälle</button>
+          <button class="btn f" id="txNone">Kaikki pois</button>
+        </div>
+        <div id="txlist"></div>
+        <p class="hint">Valitse minkä solmun havainnot näkyvät kartalla.
+        Väri kertoo vastaanotetun signaalin tason (RSSI), ei lähettäjää.</p>
+      </section>
+
+      <section class="grp">
+        <h2>Vertaa mallia</h2>
+        <div class="row">
+          <div class="f">
+            <label for="simFile">Kuuluvuus.html:n PNG-vienti</label>
+            <input type="file" id="simFile" accept="image/png">
+          </div>
+        </div>
+        <div class="row" id="simControls" style="display:none">
+          <div class="f">
+            <label for="simOpacity">Läpinäkyvyys</label>
+            <div class="rng"><input type="range" id="simOpacity" min="0" max="100" value="70"><b id="simOpacityVal">70 %</b></div>
+          </div>
+        </div>
+        <div id="simInfo" class="hint" style="display:none"></div>
+        <p class="hint">Lataa kuuluvuus.html:n <b>Lataa PNG</b> -tiedosto tähän
+        — sijoitustiedot (kartan rajat, väriasteikko, asemat) ovat kuvassa
+        mukana, joten se asettuu automaattisesti oikeaan kohtaan.</p>
+      </section>
+
+    </div>
+
+  </aside>
+
+  <main id="stage">
+    <div id="map"></div>
+
+    <div id="status">
+      <span class="k">Ladataan…</span>
+    </div>
+
+    <div id="legend">
+      <h3>Vastaanottotaso</h3>
+      <div id="bar"></div>
+      <div id="ticks"><span>–131</span><span>–95</span><span>–60 dBm</span></div>
+    </div>
+
+  </main>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* Sama viisiportainen signaaliramppi ja RSSI-domeeni (-131…-60 dBm) kuin
+   kuuluvuus.html:n peittokartassa (radio-core.js:n RAMP/rampColor) —
+   kopioitu tähän erikseen, koska muu radio-core.js on
+   etenemismallilaskentaa varten eikä tarvita tässä pelkässä
+   havaintojen selauksessa. */
+const RAMP = [
+  {t:0.00, c:[44,62,143]},
+  {t:0.28, c:[31,122,140]},
+  {t:0.52, c:[63,170,90]},
+  {t:0.76, c:[229,192,75]},
+  {t:1.00, c:[232,98,44]}
+];
+function rampColor(t){
+  t = t<0?0:t>1?1:t;
+  for(let i=0;i<RAMP.length-1;i++){
+    const a=RAMP[i], b=RAMP[i+1];
+    if(t<=b.t){
+      const f=(t-a.t)/(b.t-a.t);
+      return [a.c[0]+(b.c[0]-a.c[0])*f, a.c[1]+(b.c[1]-a.c[1])*f, a.c[2]+(b.c[2]-a.c[2])*f];
+    }
+  }
+  return RAMP[RAMP.length-1].c;
+}
+const RLO=-131, RHI=-60;
+const rssiT = rssi => (rssi-RLO)/(RHI-RLO);
+{
+  const stops=RAMP.map(r=>`rgb(${r.c.map(Math.round).join(',')}) ${(r.t*100).toFixed(0)}%`).join(',');
+  $('bar').style.background=`linear-gradient(90deg,${stops})`;
+}
+
+const map = L.map('map',{zoomControl:true}).setView([66.050,25.200],9);
+L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{
+  maxZoom:17, attribution:'© OpenTopoMap, © OpenStreetMap'
+}).addTo(map);
+
+/* Lukee kuuluvuus.html:n embedPngText()-funktiolla upottaman iTXt-
+   metadatakentän ("oh9ab-coverage") — vastapari sille funktiolle, ei
+   yritä lukea mitä tahansa PNG:n metadataa. Kävelee chunkit läpi
+   PNG-spesifikaation mukaisesti; ei tarvitse ulkoista kirjastoa. */
+function readPngText(bytes, keyword){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let p = 8;   // ohita 8-tavuinen PNG-signature
+  while(p + 8 <= bytes.length){
+    const len = dv.getUint32(p);
+    const type = String.fromCharCode(bytes[p+4],bytes[p+5],bytes[p+6],bytes[p+7]);
+    const dataStart = p+8;
+    if(type==='iTXt' || type==='tEXt'){
+      let nul = dataStart;
+      while(nul < dataStart+len && bytes[nul]!==0) nul++;
+      const kw = new TextDecoder().decode(bytes.subarray(dataStart, nul));
+      if(kw === keyword){
+        let textStart;
+        if(type==='tEXt'){
+          textStart = nul+1;
+        } else {
+          let q = nul+1+2;                                    // compFlag+compMethod
+          while(q < dataStart+len && bytes[q]!==0) q++; q++;   // langTag
+          while(q < dataStart+len && bytes[q]!==0) q++; q++;   // translatedKeyword
+          textStart = q;
+        }
+        return new TextDecoder('utf-8').decode(bytes.subarray(textStart, dataStart+len));
+      }
+    }
+    p = dataStart + len + 4;
+    if(type==='IEND') break;
+  }
+  return null;
+}
+
+let simLayer = null;
+async function loadSimPNG(file){
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const text = readPngText(bytes, 'oh9ab-coverage');
+  const info = $('simInfo');
+  info.style.display='block';
+  if(!text){
+    info.innerHTML = 'Tästä PNG:stä ei löytynyt sijoitustietoja — onko se '+
+      'tuotu kuuluvuus.html:n <b>Lataa PNG</b> -napista?';
+    $('simControls').style.display='none';
+    return;
+  }
+  let meta;
+  try{ meta = JSON.parse(text); }
+  catch(e){ info.textContent = 'Metadata löytyi, muttei jäsentynyt JSON:na.'; return; }
+
+  if(simLayer) map.removeLayer(simLayer);
+  simLayer = L.imageOverlay(URL.createObjectURL(file), meta.bounds,
+    {opacity:+$('simOpacity').value/100, interactive:false}).addTo(map);
+
+  const scaleMismatch = meta.cutoff!==RLO || meta.top!==RHI;
+  const modelName = meta.model==='p1812' ? 'ITU-R P.1812-8' : meta.model==='deygout' ? 'Deygout-esikatselu' : (meta.model||'?');
+  info.innerHTML = `<b>${modelName}</b> · luotu ${meta.generated ? new Date(meta.generated).toLocaleString('fi-FI') : '?'}<br>`+
+    `Väriasteikko ${meta.cutoff}…${meta.top} dBm`+
+    (scaleMismatch ? ' <b style="color:var(--s4)">— eri kuin havaintojen –131…–60, väri ei siis suoraan vertaudu!</b>' : ' (sama kuin havainnoilla)')+
+    (meta.sites && meta.sites.length ? `<br>Asemat: ${meta.sites.map(s=>s.name).join(', ')}` : '');
+  $('simControls').style.display='flex';
+}
+$('simFile').addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(f) loadSimPNG(f);
+});
+$('simOpacity').addEventListener('input', e=>{
+  $('simOpacityVal').textContent = e.target.value+' %';
+  if(simLayer) simLayer.setOpacity(+e.target.value/100);
+});
+
+let nodesMeta = null;
+let mode = 'points';
+let interpLayer = null;
+const nodeState = {}; // txId(string) -> {group:L.layerGroup, rows:[...], on:true}
+
+/* Etäisyys (m), jonka jälkeen ekstrapolaatio häivytetään näkymättömiin.
+   IDW ilman tätä värittäisi koko kartan asti äärettömyyteen lähimpänä
+   globaalia painotettua keskiarvoa — se näyttäisi luottamukselta jota ei
+   ole. Tämä on tietoinen kompromissi tarkan arvon vs. rehellisen "emme
+   tiedä" -rajan välillä, ei mitattu vakio. */
+const FADE_M = 1500;
+
+function nodeName(id){
+  const hex = '!'+((id>>>0).toString(16).padStart(8,'0'));
+  const n = nodesMeta && nodesMeta.nodes && nodesMeta.nodes[hex];
+  if(n) return n.shortname || n.name || hex;
+  return hex;
+}
+
+function parseCSV(text){
+  const lines = text.split('\n').filter(l=>l.trim().length);
+  if(lines.length<2) return [];
+  const header = lines[0].split(',');
+  const idx = {}; header.forEach((h,i)=>idx[h]=i);
+  const num = (cols,k) => { const v=cols[idx[k]]; return v===undefined||v===''?null:+v; };
+  return lines.slice(1).map(line=>{
+    const cols = line.split(',');
+    return {
+      time:num(cols,'time'), tx_id:num(cols,'tx_id'),
+      tx_lat:num(cols,'tx_lat'), tx_lon:num(cols,'tx_lon'),
+      rx_id:num(cols,'rx_id'), rx_lat:num(cols,'rx_lat'), rx_lon:num(cols,'rx_lon'),
+      rssi:num(cols,'rssi'), snr:num(cols,'snr'), dist_m:num(cols,'dist_m')
+    };
+  }).filter(r=>r.tx_id!==null && r.rx_lat!==null && r.rssi!==null);
+}
+
+function popupHtml(r){
+  const when = new Date(r.time*1000).toLocaleString('fi-FI');
+  return `<b>${nodeName(r.tx_id)}</b> → ${nodeName(r.rx_id)}<br>`+
+    `RSSI ${r.rssi} dBm`+(r.snr!==null?`, SNR ${r.snr} dB`:'')+`<br>`+
+    `${(r.dist_m/1000).toFixed(2)} km · ${when}`;
+}
+
+function buildLayers(rows){
+  const byTx = {};
+  rows.forEach(r=>{ (byTx[r.tx_id]=byTx[r.tx_id]||[]).push(r); });
+  Object.keys(byTx).forEach(txId=>{
+    const list = byTx[txId];
+    const group = L.layerGroup();
+    list.forEach(r=>{
+      const col = rampColor(rssiT(r.rssi));
+      L.circleMarker([r.rx_lat,r.rx_lon],{
+        radius:6, weight:1.2, color:'rgba(8,22,31,.7)', opacity:1,
+        fillColor:`rgb(${col.map(Math.round).join(',')})`, fillOpacity:.88
+      }).bindPopup(popupHtml(r)).addTo(group);
+    });
+    const last = list[list.length-1];
+    if(last.tx_lat!==null && last.tx_lon!==null){
+      L.marker([last.tx_lat,last.tx_lon],{icon:L.divIcon({className:'node-pin',html:'<i></i>',iconSize:[15,15]})})
+        .bindTooltip(nodeName(+txId)).addTo(group);
+    }
+    nodeState[txId] = {group, rows:list, on:true};
+    group.addTo(map);
+  });
+}
+
+function checkedRows(){
+  let out = [];
+  Object.values(nodeState).forEach(s=>{ if(s.on) out = out.concat(s.rows); });
+  return out;
+}
+
+/* Käänteisen etäisyyden painotus (IDW, p=2): jokainen ruudukon piste saa
+   arvon kaikkien valittujen havaintojen painotettuna keskiarvona, paino
+   1/etäisyys². Tämä ekstrapoloi SIGNAALIN TASOA pisteiden välissä ja
+   ympärillä — toisin kuin leaflet.heat-tyyppinen ydintiheysestimointi, joka
+   näyttäisi vain missä havaintoja on paljon, ei mitä ne sanovat. */
+function buildInterpolated(rows){
+  if(interpLayer){ map.removeLayer(interpLayer); interpLayer=null; }
+  if(rows.length < 2) return;
+
+  const lats = rows.map(r=>r.rx_lat), lons = rows.map(r=>r.rx_lon);
+  let latMin=Math.min(...lats), latMax=Math.max(...lats);
+  let lonMin=Math.min(...lons), lonMax=Math.max(...lons);
+  const padLat = Math.max((latMax-latMin)*0.3, 0.01);
+  const padLon = Math.max((lonMax-lonMin)*0.3, 0.01);
+  latMin-=padLat; latMax+=padLat; lonMin-=padLon; lonMax+=padLon;
+
+  const meanLat = (latMin+latMax)/2;
+  const mLat = 111320;                                   // m / astetta leveyttä
+  const mLon = 111320*Math.cos(meanLat*Math.PI/180);      // m / astetta pituutta tällä leveydellä
+  const wM = (lonMax-lonMin)*mLon, hM = (latMax-latMin)*mLat;
+
+  const W = 260;
+  const H = Math.max(40, Math.min(600, Math.round(W*hM/wM)));
+
+  const cv = document.createElement('canvas');
+  cv.width=W; cv.height=H;
+  const cx = cv.getContext('2d');
+  const img = cx.createImageData(W,H);
+  const d = img.data;
+
+  for(let py=0; py<H; py++){
+    const lat = latMax - (py+0.5)/H*(latMax-latMin);
+    for(let px=0; px<W; px++){
+      const lon = lonMin + (px+0.5)/W*(lonMax-lonMin);
+      let sw=0, swv=0, nearest=Infinity;
+      for(const r of rows){
+        const dx=(lon-r.rx_lon)*mLon, dy=(lat-r.rx_lat)*mLat;
+        const dist2=dx*dx+dy*dy;
+        if(dist2<nearest) nearest=dist2;
+        const w=1/Math.max(dist2, 400);   // 20 m minimietäisyys, ei jakoa nollalla pisteen kohdalla
+        sw+=w; swv+=w*r.rssi;
+      }
+      nearest = Math.sqrt(nearest);
+      const col = rampColor(rssiT(swv/sw));
+      const alpha = Math.max(0, 1-nearest/FADE_M);
+      const i=(py*W+px)*4;
+      d[i]=col[0]|0; d[i+1]=col[1]|0; d[i+2]=col[2]|0; d[i+3]=(alpha*210)|0;
+    }
+  }
+  cx.putImageData(img,0,0);
+  interpLayer = L.imageOverlay(cv.toDataURL(), [[latMin,lonMin],[latMax,lonMax]],
+                               {opacity:1, interactive:false}).addTo(map);
+}
+
+function applyMode(){
+  Object.values(nodeState).forEach(s=>{
+    if(mode==='points' && s.on) s.group.addTo(map);
+    else map.removeLayer(s.group);
+  });
+  if(mode==='heat') buildInterpolated(checkedRows());
+  else if(interpLayer){ map.removeLayer(interpLayer); interpLayer=null; }
+  $('heatHint').style.display = mode==='heat' ? 'block' : 'none';
+  $('modePoints').classList.toggle('primary', mode==='points');
+  $('modeHeat').classList.toggle('primary', mode==='heat');
+}
+
+function buildChecklist(){
+  const el = $('txlist'); el.innerHTML='';
+  Object.keys(nodeState)
+    .sort((a,b)=>nodeState[b].rows.length-nodeState[a].rows.length)
+    .forEach(txId=>{
+      const s = nodeState[txId];
+      const row = document.createElement('label');
+      row.className='site';
+      row.style.cursor='pointer';
+      row.innerHTML = `<input type="checkbox" checked data-tx="${txId}">`+
+        `<span class="nm">${nodeName(+txId)}<small>${s.rows.length} havaintoa</small></span>`;
+      row.querySelector('input').addEventListener('change', e=>{
+        s.on = e.target.checked;
+        applyMode();
+      });
+      el.appendChild(row);
+    });
+}
+
+function fitToData(rows){
+  const pts = [];
+  rows.forEach(r=>{
+    pts.push([r.rx_lat,r.rx_lon]);
+    if(r.tx_lat!==null) pts.push([r.tx_lat,r.tx_lon]);
+  });
+  if(pts.length) map.fitBounds(pts,{padding:[40,40],maxZoom:13});
+}
+
+async function load(){
+  $('status').innerHTML = '<span class="k">Ladataan…</span>';
+  Object.values(nodeState).forEach(s=>map.removeLayer(s.group));
+  Object.keys(nodeState).forEach(k=>delete nodeState[k]);
+  if(interpLayer){ map.removeLayer(interpLayer); interpLayer=null; }
+
+  try{
+    nodesMeta = await fetch('validate/nodes.json').then(r=>r.ok?r.json():null).catch(()=>null);
+  }catch(e){ nodesMeta = null; }
+
+  let rows;
+  try{
+    const text = await fetch('validate/havainnot.csv').then(r=>{
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.text();
+    });
+    rows = parseCSV(text);
+  }catch(e){
+    $('status').innerHTML = '<span class="k">Ei dataa.</span> '+
+      'validate/havainnot.csv puuttuu — aja ensin '+
+      '<code>python3 validate/parse_logs.py logs/*.ndjson --out validate/havainnot.csv</code>.';
+    $('status').classList.add('warn');
+    return;
+  }
+  $('status').classList.remove('warn');
+
+  if(!rows.length){
+    $('status').innerHTML = '<span class="k">Tyhjä.</span> havainnot.csv:ssä ei ole rivejä.';
+    return;
+  }
+
+  buildLayers(rows);
+  buildChecklist();
+  applyMode();
+  fitToData(rows);
+
+  const nTx = Object.keys(nodeState).length;
+  const times = rows.map(r=>r.time).filter(t=>t);
+  const oldest = new Date(Math.min(...times)*1000).toLocaleDateString('fi-FI');
+  const newest = new Date(Math.max(...times)*1000).toLocaleDateString('fi-FI');
+  $('status').innerHTML = `<span class="k">${rows.length} havaintoa</span> · `+
+    `${nTx} lähettäjää · ${oldest}–${newest}`;
+}
+
+$('modePoints').addEventListener('click', ()=>{ mode='points'; applyMode(); });
+$('modeHeat').addEventListener('click', ()=>{ mode='heat'; applyMode(); });
+$('txAll').addEventListener('click', ()=>{
+  Object.values(nodeState).forEach(s=>s.on=true);
+  document.querySelectorAll('#txlist input').forEach(c=>c.checked=true);
+  applyMode();
+});
+$('txNone').addEventListener('click', ()=>{
+  Object.values(nodeState).forEach(s=>s.on=false);
+  document.querySelectorAll('#txlist input').forEach(c=>c.checked=false);
+  applyMode();
+});
+$('sheet-handle').addEventListener('click', ()=>$('panel').classList.toggle('open'));
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Isot data-aineistot ja tuotetut ruudut eivät kuulu versionhallintaan.
+data/
+tiles/
+
+# Generoidut testivektorit. itu_vectors.json sisältää ITU-R SG3:n
+# mittausprofiileja joiden levitysoikeutta ei ole selvitetty — ei repoon.
+core/tests/vectors.json
+core/tests/itu_vectors.json
+
+# Kerätyt MQTT-lokit sisältävät ihmisten sijainteja — ei julkiseen repoon.
+logs/
+
+# Validointiaineisto: omat lokit ja niistä johdetut välitulokset sisältävät
+# solmujen sijainteja, joten ne eivät kuulu julkiseen repoon.
+validate/nodes.json
+validate/*.ndjson
+validate/havainnot.csv
+validate/profiilit.json
+validate/ennusteet.json
+validate/sirontakuvio.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
